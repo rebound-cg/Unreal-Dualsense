@@ -1,5 +1,6 @@
 // Copyright (c) 2025 Rafael Valoto/Publisher. All rights reserved.
 // Created for: WindowsDualsense_ds5w - Plugin to support DualSense controller on Windows.
+// macOS platform implementation by Brandon Bahn.
 // Planned Release Year: 2025
 
 #include "WindowsDualsense_ds5w/Public/WindowsDualsense_ds5w.h"
@@ -7,14 +8,25 @@
 #include "GCore/Interfaces/IPlatformHardwareInfo.h"
 #include "Helpers/DualSenseLog.h"
 #include "Implementations/Adapters/DeviceRegistry.h"
-#include "Implementations/Platforms/Commons/LinuxHardwarePolicy.h"
-#include "Implementations/Platforms/Windows/WindowsHardwarePolicy.h"
 
-#if PLATFORM_LINUX || PLATFORM_MAC
-#include "Framework/Application/SlateApplication.h"
-#include "SDL.h"
-#include "Subsystems/SonyInputProcessor.h"
+#if PLATFORM_WINDOWS
+#include "Implementations/Platforms/Windows/WindowsHardwarePolicy.h"
 #endif
+
+#if PLATFORM_LINUX
+#include "Implementations/Platforms/Commons/LinuxHardwarePolicy.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Subsystems/SonyInputProcessor.h"
+#include "SDL.h"
+#endif
+
+#if PLATFORM_MAC
+#include "Implementations/Platforms/Mac/MacHardwarePolicy.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Subsystems/SonyInputProcessor.h"
+#include <hidapi/hidapi.h>
+#endif
+
 #include "DeviceManager.h"
 #include "InputCoreTypes.h"
 #include "Misc/Paths.h"
@@ -27,14 +39,14 @@ void FWindowsDualsense_ds5wModule::StartupModule()
 	RegisterCustomKeys();
 
 #if PLATFORM_WINDOWS
-	// Initialize PlatformHardware, (e.g., FLinuxHardware FWindowsHardware FMacHardware, FSonyHardware)
+	// Initialize PlatformHardware
 	std::unique_ptr<IPlatformHardwareInfo> WindowsInstance = std::make_unique<FWindowsPlatform::FWindowsHardware>();
 	IPlatformHardwareInfo::SetInstance(std::move(WindowsInstance));
 
 	// Initialize FDeviceRegistry
 	FDeviceRegistry::Initialize();
 
-#elif PLATFORM_LINUX || PLATFORM_MAC
+#elif PLATFORM_LINUX
 	if (SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) != 0)
 	{
 		UE_LOG(LogDualSense, Error, TEXT("Failed to initialize subsystems of SDL: %s"), UTF8_TO_TCHAR(SDL_GetError()));
@@ -46,19 +58,37 @@ void FWindowsDualsense_ds5wModule::StartupModule()
 		FSlateApplication::Get().RegisterInputPreProcessor(SonyInputProcessor);
 	}
 
-	// Initialize PlatformHardware, (e.g., FLinuxHardware FWindowsHardware FMacHardware, FSonyHardware)
 	std::unique_ptr<IPlatformHardwareInfo> LinuxInstance = std::make_unique<FLinuxPlatform::FLinuxHardware>();
 	IPlatformHardwareInfo::SetInstance(std::move(LinuxInstance));
+	FDeviceRegistry::Initialize();
 
+#elif PLATFORM_MAC
+	if (hid_init() != 0)
+	{
+		UE_LOG(LogDualSense, Error, TEXT("Failed to initialize hidapi for macOS"));
+	}
+
+	if (FSlateApplication::IsInitialized())
+	{
+		TSharedPtr<FSonyInputProcessor> SonyInputProcessor = MakeShared<FSonyInputProcessor>();
+		FSlateApplication::Get().RegisterInputPreProcessor(SonyInputProcessor);
+	}
+
+	std::unique_ptr<IPlatformHardwareInfo> MacInstance = std::make_unique<FMacPlatform::FMacHardware>();
+	IPlatformHardwareInfo::SetInstance(std::move(MacInstance));
 	FDeviceRegistry::Initialize();
 #endif
 }
 
 void FWindowsDualsense_ds5wModule::ShutdownModule()
 {
-#if PLATFORM_LINUX || PLATFORM_MAC
+#if PLATFORM_LINUX
 	SDL_Quit();
-
+#endif
+#if PLATFORM_MAC
+	hid_exit();
+#endif
+#if PLATFORM_LINUX || PLATFORM_MAC
 	if (FSlateApplication::IsInitialized())
 	{
 		FSlateApplication::Get().UnregisterInputPreProcessor(SonyInputProcessor);

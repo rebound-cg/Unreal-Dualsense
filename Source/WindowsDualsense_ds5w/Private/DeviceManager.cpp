@@ -281,7 +281,7 @@ void DeviceManager::SetChannelValues(int32 ControllerId, const FForceFeedbackVal
 		auto GetRumbleByte = [](const float Small, const float Large) -> std::uint8_t {
 			std::uint8_t SmallNib = FMath::Clamp(Small, 0.f, 1.f) * 15;
 			std::uint8_t LargeNib = FMath::Clamp(Large, 0.f, 1.f) * 15;
-			return (LargeNib << 4) | SmallNib & 0x0f;
+			return (LargeNib << 4) | (SmallNib & 0x0f);
 		};
 
 		const std::uint8_t LeftRumble = GetRumbleByte(Values.LeftSmall, Values.LeftLarge);

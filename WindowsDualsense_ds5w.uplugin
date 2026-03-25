@@ -28,7 +28,7 @@
       "Name": "WindowsDualsense_ds5w",
       "Type": "Runtime",
       "LoadingPhase": "PreDefault",
-      "PlatformAllowList": ["Win64", "Linux"]
+      "PlatformAllowList": ["Win64", "Linux", "Mac"]
     }
   ]
 }
