@@ -11,7 +11,9 @@
 #include "GCore/Types/Structs/Config/GamepadCalibration.h"
 #include "GCore/Types/Structs/Context/DeviceContext.h"
 #include "GImplementations/Utils/GamepadSensors.h"
+#include "HAL/IConsoleManager.h"
 #include <hidapi/hidapi.h>
+#include <hidapi/hidapi_darwin.h>
 #include <cstring>
 #include <string>
 #include <unordered_set>
@@ -21,6 +23,16 @@ static const std::uint16_t DUALSHOCK4_PID_V1    = 0x05C4;
 static const std::uint16_t DUALSHOCK4_PID_V2    = 0x09CC;
 static const std::uint16_t DUALSENSE_PID        = 0x0CE6;
 static const std::uint16_t DUALSENSE_EDGE_PID   = 0x0DF2;
+
+// static TAutoConsoleVariable<int32> CVarDualSenseAudio(
+// 	TEXT("DualSense.Audio"),
+// 	0,  // default = untouched
+// 	TEXT("Override DualSense audio routing on the controller firmware.\n"
+// 		 "  0 = default (use whatever GamepadCore writes)\n"
+// 		 "  1 = headphones (audio_flags = 0x00)\n"
+// 		 "  2 = internal speaker (audio_flags = 0x30)\n"
+// 		 "  3 = both (audio_flags = 0x20)"),
+// 	ECVF_Default);
 
 void FMacDeviceInfo::Read(FDeviceContext* Context)
 {
@@ -140,6 +152,14 @@ void FMacDeviceInfo::Write(FDeviceContext* Context)
 	const size_t InReportLength = (Context->DeviceType == EDSDeviceType::DualShock4) ? 32 : 64;
 	const size_t OutputReportLength = (Context->ConnectionType == EDSDeviceConnection::Bluetooth) ? 78 : InReportLength;
 
+	// switch (CVarDualSenseAudio.GetValueOnAnyThread())
+	// {
+	// 	case 1: Context->Output.Audio.Mode = 0x00; break;  // headphones
+	// 	case 2: Context->Output.Audio.Mode = 0x30; break;  // internal speaker
+	// 	case 3: Context->Output.Audio.Mode = 0x20; break;  // both
+	// 	default: break;                                     // 0 or anything else = no override
+	// }
+
 	int BytesWritten = hid_write(DeviceHandle, Context->GetRawOutputBuffer(), OutputReportLength);
 	if (BytesWritten < 0)
 	{
@@ -209,6 +229,7 @@ bool FMacDeviceInfo::CreateHandle(FDeviceContext* Context)
 	}
 
 	const char* Path = Context->Path.data();
+	hid_darwin_set_open_exclusive(0);
 	hid_device* Handle = hid_open_path(Path);
 	if (!Handle)
 	{
