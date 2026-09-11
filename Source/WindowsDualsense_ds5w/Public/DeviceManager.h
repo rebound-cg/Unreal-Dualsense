@@ -233,6 +233,14 @@ public:
 	float PollAccumulator = 0.0f;
 
 	/**
+	 * Last amplitude (0-1) requested via SetHapticFeedbackValues for each hand. SetVibration() sets
+	 * both motors at once, so these are cached and combined to avoid one hand's haptic update
+	 * clobbering the other hand's in-flight one.
+	 */
+	float LastLeftHapticAmplitude = 0.0f;
+	float LastRightHapticAmplitude = 0.0f;
+
+	/**
 	 * Handles application-level messages and events, facilitating communication
 	 * between the application framework and platform-specific input systems.
 	 * This variable is used to process input events, updates, and interactions

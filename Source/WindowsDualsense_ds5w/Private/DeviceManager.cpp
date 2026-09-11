@@ -272,6 +272,22 @@ void DeviceManager::SetDeviceProperty(int32 ControllerId, const FInputDeviceProp
 
 void DeviceManager::SetHapticFeedbackValues(const int32 ControllerId, const int32 Hand, const FHapticFeedbackValues& Values)
 {
+	if (ISonyGamepad* Gamepad = GetGamepad(ControllerId))
+	{
+		const float Amplitude = FMath::Clamp(Values.Amplitude, 0.f, 1.f);
+
+		if (Hand == static_cast<int32>(EControllerHand::Left) || Hand == static_cast<int32>(EControllerHand::AnyHand))
+		{
+			LastLeftHapticAmplitude = Amplitude;
+		}
+		if (Hand == static_cast<int32>(EControllerHand::Right) || Hand == static_cast<int32>(EControllerHand::AnyHand))
+		{
+			LastRightHapticAmplitude = Amplitude;
+		}
+
+		Gamepad->SetVibration(static_cast<uint8>(LastLeftHapticAmplitude * 255.f), static_cast<uint8>(LastRightHapticAmplitude * 255.f));
+		Gamepad->UpdateOutput();
+	}
 }
 
 void DeviceManager::SetChannelValues(int32 ControllerId, const FForceFeedbackValues& Values)
